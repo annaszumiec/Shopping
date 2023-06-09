@@ -4,23 +4,33 @@ import {
     TextInput, KeyboardAvoidingView,
     TouchableOpacity, Alert
 } from 'react-native';
-import { collection, getDocs, addDoc } from "firebase/firestore";
 
-const ShoppingLists = ({ db }) => {
+import { collection, addDoc, onSnapshot, query, where } from "firebase/firestore";
+
+const ShoppingLists = ({ db, route }) => {
+    const { userID } = route.params;
+
     const [lists, setLists] = useState([]);
     const [listName, setListName] = useState("");
     const [item1, setItem1] = useState("");
     const [item2, setItem2] = useState("");
 
-    const fetchShoppingLists = async () => {
-        const listsDocuments = await getDocs(collection(db, "shoppinglists"));
-        let newLists = [];
-        listsDocuments.forEach(docObject => {
-            newLists.push({ id: docObject.id, ...docObject.data() })
+    useEffect(() => {
+        const q = query(collection(db, "shoppinglists"), where("uid", "==", userID));
+        const unsubShoppinglists = onSnapshot(q, (documentsSnapshot) => {
+            let newLists = [];
+            documentsSnapshot.forEach(doc => {
+                newLists.push({ id: doc.id, ...doc.data() })
+            });
+            setLists(newLists);
         });
-        setLists(newLists)
-        console.log(123);
-    }
+
+        // Clean up code
+        return () => {
+            if (unsubShoppinglists) unsubShoppinglists();
+        }
+    }, []);
+
 
     const addShoppingList = async (newList) => {
         const newListRef = await addDoc(collection(db, "shoppinglists"), newList);
@@ -32,9 +42,6 @@ const ShoppingLists = ({ db }) => {
         }
     }
 
-    useEffect(() => {
-        fetchShoppingLists();
-    }, [`${lists}`]);
 
     return (
         <View style={styles.container}>
@@ -70,6 +77,7 @@ const ShoppingLists = ({ db }) => {
                     style={styles.addButton}
                     onPress={() => {
                         const newList = {
+                            uid: userID,
                             name: listName,
                             items: [item1, item2]
                         }
